@@ -14,7 +14,7 @@ pip install -r requirements.txt
 
 # Basic Usage
 
-Example usage:
+Example usage for $200 of gambling money and week 4 lines and starting date:
 
 ```python
 ./gamble.py 200 week4_lines.csv --week-start 10/1
