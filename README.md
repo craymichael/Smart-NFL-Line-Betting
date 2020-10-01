@@ -17,10 +17,12 @@ pip install -r requirements.txt
 Example usage:
 
 ```python
-python gamble.py 200 week4_lines.csv --week-start 10/1
+./gamble.py 200 week4_lines.csv --week-start 10/1
 ```
 
-The program will spit out some recommended wagers to place.
+The program will spit out some recommended wagers to place. Note that filenames with spaces in
+them do work, but you have to ensure to run the program as above and not `python gamble.py`.
+Just a small caveat to be aware of.
 
 Currently, lines CSVs must be of the format:
 ```
