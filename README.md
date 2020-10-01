@@ -31,3 +31,7 @@ JAX,       150,        CIN,       -170
 ...
 ```
 Other columns will be ignored, case matters for teams and column headers.
+
+# License
+
+See LICENSE.md. I am not responsible for your losses.
