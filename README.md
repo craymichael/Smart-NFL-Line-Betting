@@ -34,4 +34,4 @@ Other columns will be ignored, case matters for teams and column headers.
 
 # License
 
-See LICENSE.md. I am not responsible for your losses.
+See [LICENSE](LICENSE). I am not responsible for your losses.
