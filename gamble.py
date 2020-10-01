@@ -5,6 +5,7 @@ import argparse
 from urllib import request
 from datetime import datetime
 from datetime import timedelta
+from pprint import pprint
 
 import dateutil
 from dateutil.relativedelta import relativedelta
@@ -14,6 +15,7 @@ import pandas as pd
 import numpy as np
 
 # Five Thirty Eight NFL forecasts
+# https://projects.fivethirtyeight.com/2020-nfl-predictions/games/
 ELO_URL = ('https://projects.fivethirtyeight.com/'
            'data-webpage-data/datasets/nfl-elo.zip')
 ELO_FILE = 'nfl_elo_latest.csv'
@@ -21,12 +23,21 @@ ELO_FILE = 'nfl_elo_latest.csv'
 
 parser = argparse.ArgumentParser()
 parser.add_argument('money', type=float)
+parser.add_argument('lines')  # .csv file containing lines
+
 today = datetime.now()
 today = datetime(today.year, today.month, today.day)
 parser.add_argument('--week-start', '-w', default=today)
+
+parser.add_argument('--min-bets', '-b', default=4, type=int)
+parser.add_argument('--top-k', '-k', action='store_true',
+                    help='Top k good bets instead of all good bets '
+                         'normalized')
+
 args = parser.parse_args()
 
 money = args.money
+min_bets = args.min_bets
 start_date = args.week_start
 if isinstance(start_date, str):
     start_date = dateutil.parser.parse(start_date)
@@ -40,6 +51,15 @@ start_date = (next_thurs
 end_date = start_date + timedelta(days=6)
 print('Gambling for week starting on %s and ending %s.' %
       (str(start_date.date()), str(end_date.date())))
+
+# read in lines
+lines_df = pd.read_csv(args.lines)
+teams = list(lines_df.loc[:, 'Away Team'])
+teams.extend(list(lines_df.loc[:, 'Home Team']))
+lines = list(lines_df.loc[:, 'Money Line'])
+lines.extend(list(lines_df.loc[:, 'Money Line.1']))
+
+lines = dict(zip(teams, lines))
 
 with tempfile.TemporaryDirectory() as dirname:
     elo_zip = os.path.join(dirname, 'nfl-elo.zip')
@@ -74,6 +94,12 @@ data.loc[:, DATE] = pd.to_datetime(data.loc[:, DATE])
 data = data.loc[(data.loc[:, DATE] >= start_date) &
                 (data.loc[:, DATE] <= end_date)]
 data.reset_index(inplace=True, drop=True)
+# Rename teams
+RENAME = {
+    'OAK': 'LV'
+}
+data.loc[:, TEAM1].replace(RENAME, inplace=True)
+data.loc[:, TEAM2].replace(RENAME, inplace=True)
 
 print('Using Kelly criterion to place bets with ${:.2f}.'.format(money))
 
@@ -81,7 +107,78 @@ print('Using Kelly criterion to place bets with ${:.2f}.'.format(money))
 winner_idx = data.loc[:, ELO1] > data.loc[:, ELO2]
 winners = np.where(winner_idx,
                    data.loc[:, TEAM1], data.loc[:, TEAM2])
+losers = np.where(winner_idx,
+                  data.loc[:, TEAM2], data.loc[:, TEAM1])
 probs = np.where(winner_idx,
                  data.loc[:, ELO1], data.loc[:, ELO2])
-print(probs)
+
+
+def kelly(p, b):
+    """
+    p: probability of win
+    b: net fractional odds received on wager
+    https://en.wikipedia.org/wiki/Kelly_criterion
+    """
+    return (p * (b + 1) - 1) / b
+
+
+def line_odds(line):
+    if line > 0:
+        return line / 100
+    else:
+        return -100 / line
+
+
+bets = []
+for winner, loser, prob in zip(winners, losers, probs):
+    if np.isnan(lines[winner]):
+        continue
+
+    payout_w = line_odds(lines[winner])
+    wager_w = kelly(prob, payout_w)
+
+    payout_l = line_odds(lines[loser])
+    wager_l = kelly(1 - prob, payout_l)
+
+    bets.append([winner, wager_w, payout_w, prob])
+    bets.append([loser, wager_l, payout_l, 1 - prob])
+
+bets = sorted(bets, key=lambda r: r[1], reverse=True)
+print('Team, Kelly wager, Net payout, Win prob')
+pprint(bets)
+
+MIN_KELLY = 0
+BAD_BET_WAGER = 0.69  # cents
+
+good_bets = list(filter(lambda r: r[1] > MIN_KELLY, bets))
+
+if args.top_k:
+    print('Using top k bets that sum to 1')
+    total = 0
+    for i, bet in enumerate(good_bets):
+        total += bet[1]
+        if total > 1:
+            break
+    good_bets = good_bets[:i]
+
+if len(good_bets) < min_bets:
+    good_bets = bets[:min_bets]
+    bad_bet_frac = BAD_BET_WAGER / money
+    for bet in good_bets:
+        if bet[1] < 0:
+            bet[1] = bad_bet_frac
+
+bet_total = sum(r[1] for r in good_bets)
+if bet_total > 1:
+    bet_scalar = bet_total
+    bet_total = 1
+    print('Total bets over 100%%, reducing bets by %.2f%%' %
+          ((bet_scalar - 1) * 100))
+else:
+    bet_scalar = 1
+
+print('Betting on %d teams with %.2f%% of $%.2f ($%.2f).' %
+      (len(good_bets), bet_total * 100, money, money * bet_total))
+for team, wager, _, _ in good_bets:
+    print('%3s $%.2f' % (team, wager / bet_scalar * money))
 # EOF
