@@ -3,6 +3,7 @@ import os
 import tempfile
 import zipfile
 import argparse
+import re
 from urllib import request
 from datetime import datetime
 from datetime import timedelta
@@ -35,6 +36,8 @@ parser.add_argument('--top-k', '-k', action='store_true',
                     help='Top k good bets instead of all good bets '
                          'normalized')
 
+parser.add_argument('--tyAI', action='store_true')
+
 args = parser.parse_args()
 
 money = args.money
@@ -55,10 +58,18 @@ print('Gambling for week starting on %s and ending %s.' %
 
 # read in lines
 lines_df = pd.read_csv(args.lines)
+lines_df.rename(
+    columns=lambda c: re.sub(' +', ' ', c.replace('\n', ' ').strip()),
+    inplace=True
+)
+lines_df.dropna(subset=['Money Line', 'Money Line.1',
+                        'Away Team', 'Home Team'],
+                how='any', axis=0, inplace=True)
+lines_df.reset_index(inplace=True, drop=True)
 teams = list(lines_df.loc[:, 'Away Team'])
 teams.extend(list(lines_df.loc[:, 'Home Team']))
-lines = list(lines_df.loc[:, 'Money Line'])
-lines.extend(list(lines_df.loc[:, 'Money Line.1']))
+lines = list(lines_df.loc[:, 'Money Line'].astype(int))
+lines.extend(list(lines_df.loc[:, 'Money Line.1'].astype(int)))
 
 lines = dict(zip(teams, lines))
 
@@ -131,7 +142,13 @@ def line_odds(line):
 
 
 bets = []
+if args.tyAI:
+    print('Explicitly going out of the way to ignore the statistical model '
+          'and say every game is 50/50 odds.')
 for winner, loser, prob in zip(winners, losers, probs):
+    if args.tyAI:
+        prob = 0.5
+
     if np.isnan(lines[winner]):
         continue
 
@@ -156,13 +173,17 @@ good_bets = list(filter(lambda r: r[1] > MIN_KELLY, bets))
 if args.top_k:
     print('Using top k bets that sum to 1')
     total = 0
+    n_bets = 1
     for i, bet in enumerate(good_bets):
         total += bet[1]
         if total > 1:
+            print('Full money exceeded after %d bets' % (i + 1))
             break
-    good_bets = good_bets[:i]
+        n_bets += 1
+    good_bets = good_bets[:n_bets]
 
 if len(good_bets) < min_bets:
+    print('Minimum bets not exceeded. Adding more bets...')
     good_bets = bets[:min_bets]
     bad_bet_frac = BAD_BET_WAGER / money
     for bet in good_bets:
