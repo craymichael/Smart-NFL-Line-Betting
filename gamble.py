@@ -36,6 +36,8 @@ parser.add_argument('--top-k', '-k', action='store_true',
                     help='Top k good bets instead of all good bets '
                          'normalized')
 
+parser.add_argument('--lines-only', action='store_true',
+                    help='Use lines only to make bets')
 parser.add_argument('--tyAI', action='store_true')
 
 args = parser.parse_args()
@@ -146,11 +148,13 @@ if args.tyAI:
     print('Explicitly going out of the way to ignore the statistical model '
           'and say every game is 50/50 odds.')
 for winner, loser, prob in zip(winners, losers, probs):
+    if winner not in lines or np.isnan(lines[winner]):
+        continue
+
     if args.tyAI:
         prob = 0.5
-
-    if np.isnan(lines[winner]):
-        continue
+    elif args.lines_only:
+        prob = lines[winner] / abs(lines[winner] - lines[loser])
 
     payout_w = line_odds(lines[winner])
     wager_w = kelly(prob, payout_w)
