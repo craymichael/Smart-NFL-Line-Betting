@@ -75,56 +75,64 @@ lines.extend(list(lines_df.loc[:, 'Money Line.1'].astype(int)))
 
 lines = dict(zip(teams, lines))
 
-with tempfile.TemporaryDirectory() as dirname:
-    elo_zip = os.path.join(dirname, 'nfl-elo.zip')
-    print('Downloading %s to %s.' % (ELO_URL, elo_zip))
-    request.urlretrieve(ELO_URL, elo_zip)
+if not (args.lines_only or args.tyAI):
+    with tempfile.TemporaryDirectory() as dirname:
+        elo_zip = os.path.join(dirname, 'nfl-elo.zip')
+        print('Downloading %s to %s.' % (ELO_URL, elo_zip))
+        request.urlretrieve(ELO_URL, elo_zip)
 
-    elo_dir = os.path.join(dirname, 'nfl-elo')
-    print('Extracting to %s.' % elo_dir)
-    with zipfile.ZipFile(elo_zip, 'r') as zip_file:
-        zip_file.extractall(elo_dir)
+        elo_dir = os.path.join(dirname, 'nfl-elo')
+        print('Extracting to %s.' % elo_dir)
+        with zipfile.ZipFile(elo_zip, 'r') as zip_file:
+            zip_file.extractall(elo_dir)
 
-    # Grab the contents of ELO_FILE
-    zip_contents = os.listdir(elo_dir)
-    elo_file = ELO_FILE
-    if (len(zip_contents) == 1 and
-            os.path.isdir(os.path.join(elo_dir, zip_contents[0]))):
-        elo_file = os.path.join(zip_contents[0], elo_file)
-    elo_file = os.path.join(elo_dir, elo_file)
+        # Grab the contents of ELO_FILE
+        zip_contents = os.listdir(elo_dir)
+        elo_file = ELO_FILE
+        if (len(zip_contents) == 1 and
+                os.path.isdir(os.path.join(elo_dir, zip_contents[0]))):
+            elo_file = os.path.join(zip_contents[0], elo_file)
+        elo_file = os.path.join(elo_dir, elo_file)
 
-    print('Reading content of %s.' % elo_file)
-    data = pd.read_csv(elo_file)
+        print('Reading content of %s.' % elo_file)
+        data = pd.read_csv(elo_file)
 
-# Quarterback-adjusted elo probability of winning
-ELO1 = 'qbelo_prob1'
-ELO2 = 'qbelo_prob2'
-TEAM1 = 'team1'
-TEAM2 = 'team2'
-DATE = 'date'
+    # Quarterback-adjusted elo probability of winning
+    ELO1 = 'qbelo_prob1'
+    ELO2 = 'qbelo_prob2'
+    TEAM1 = 'team1'
+    TEAM2 = 'team2'
+    DATE = 'date'
 
-# Filter data for date range
-data.loc[:, DATE] = pd.to_datetime(data.loc[:, DATE])
-data = data.loc[(data.loc[:, DATE] >= start_date) &
-                (data.loc[:, DATE] <= end_date)]
-data.reset_index(inplace=True, drop=True)
-# Rename teams
-RENAME = {
-    'OAK': 'LV'
-}
-data.loc[:, TEAM1].replace(RENAME, inplace=True)
-data.loc[:, TEAM2].replace(RENAME, inplace=True)
+    # Filter data for date range
+    data.loc[:, DATE] = pd.to_datetime(data.loc[:, DATE])
+    data = data.loc[(data.loc[:, DATE] >= start_date) &
+                    (data.loc[:, DATE] <= end_date)]
+    data.reset_index(inplace=True, drop=True)
+    # Rename teams
+    RENAME = {
+        'OAK': 'LV',
+        'WAS': 'WSH',
+        'JAC': 'JAX',
+    }
+    data.loc[:, TEAM1].replace(RENAME, inplace=True)
+    data.loc[:, TEAM2].replace(RENAME, inplace=True)
+
+    # Grab winning teams and probabilities
+    winner_idx = data.loc[:, ELO1] > data.loc[:, ELO2]
+    winners = np.where(winner_idx,
+                       data.loc[:, TEAM1], data.loc[:, TEAM2])
+    losers = np.where(winner_idx,
+                      data.loc[:, TEAM2], data.loc[:, TEAM1])
+    probs = np.where(winner_idx,
+                     data.loc[:, ELO1], data.loc[:, ELO2])
+else:
+    # Dummies, TODO hacky...
+    winners = lines_df.loc[:, 'Home Team']
+    losers = lines_df.loc[:, 'Away Team']
+    probs = len(winners) * [None]
 
 print('Using Kelly criterion to place bets with ${:.2f}.'.format(money))
-
-# Grab winning teams and probabilities
-winner_idx = data.loc[:, ELO1] > data.loc[:, ELO2]
-winners = np.where(winner_idx,
-                   data.loc[:, TEAM1], data.loc[:, TEAM2])
-losers = np.where(winner_idx,
-                  data.loc[:, TEAM2], data.loc[:, TEAM1])
-probs = np.where(winner_idx,
-                 data.loc[:, ELO1], data.loc[:, ELO2])
 
 
 def kelly(p, b):
@@ -152,18 +160,29 @@ for winner, loser, prob in zip(winners, losers, probs):
         continue
 
     if args.tyAI:
-        prob = 0.5
+        prob_w = prob_l = 0.5
     elif args.lines_only:
-        prob = lines[winner] / abs(lines[winner] - lines[loser])
+        against = lines[winner] / 100
+        prob_w = against / (abs(against) + 1)
+        if prob_w < 0:
+            prob_w += 1
+
+        against = lines[loser] / 100
+        prob_l = against / (abs(against) + 1)
+        if prob_l < 0:
+            prob_l += 1
+    else:
+        prob_w = prob
+        prob_l = 1. - prob
 
     payout_w = line_odds(lines[winner])
-    wager_w = kelly(prob, payout_w)
+    wager_w = kelly(prob_w, payout_w)
 
     payout_l = line_odds(lines[loser])
-    wager_l = kelly(1 - prob, payout_l)
+    wager_l = kelly(prob_l, payout_l)
 
-    bets.append([winner, wager_w, payout_w, prob])
-    bets.append([loser, wager_l, payout_l, 1 - prob])
+    bets.append([winner, wager_w, payout_w, prob_w])
+    bets.append([loser, wager_l, payout_l, prob_l])
 
 bets = sorted(bets, key=lambda r: r[1], reverse=True)
 print('Team, Kelly wager, Net payout, Win prob')
