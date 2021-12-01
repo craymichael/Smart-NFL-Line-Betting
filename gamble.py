@@ -60,6 +60,9 @@ print('Gambling for week starting on %s and ending %s.' %
 
 # read in lines
 lines_df = pd.read_csv(args.lines)
+n_named = sum(1 for k in lines_df if not k.startswith('Unnamed'))
+if n_named < 4:
+    lines_df = pd.read_csv(args.lines, skiprows=1)
 lines_df.rename(
     columns=lambda c: re.sub(' +', ' ', c.replace('\n', ' ').strip()),
     inplace=True
@@ -112,7 +115,6 @@ if not (args.lines_only or args.tyAI):
     # Rename teams
     RENAME = {
         'OAK': 'LV',
-        'WAS': 'WSH',
         'JAC': 'JAX',
     }
     data.loc[:, TEAM1].replace(RENAME, inplace=True)
