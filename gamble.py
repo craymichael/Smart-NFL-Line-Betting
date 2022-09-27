@@ -42,7 +42,8 @@ parser.add_argument('--tyAI', action='store_true')
 
 args = parser.parse_args()
 
-money = args.money
+money = args.money * .6
+print(f'Bet 60% of ${args.money:.2f} = ${money:.2f}')
 min_bets = args.min_bets
 start_date = args.week_start
 if isinstance(start_date, str):
@@ -77,6 +78,9 @@ lines = list(lines_df.loc[:, 'Money Line'].astype(int))
 lines.extend(list(lines_df.loc[:, 'Money Line.1'].astype(int)))
 
 lines = dict(zip(teams, lines))
+if '0' in lines:
+    # idk why this happens
+    del lines['0']
 
 if not (args.lines_only or args.tyAI):
     with tempfile.TemporaryDirectory() as dirname:

@@ -54,6 +54,8 @@ for game in table.select('div.margin-date'):
             data.append(data_game_)
 
 df = pd.DataFrame(data)
+if df.empty:
+    print('no lines available...')
 df.sort_values(by='game', inplace=True)
 home_mask = df.flag == 'home'
 df_home = df[home_mask]
