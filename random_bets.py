@@ -4,7 +4,7 @@ import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument('money', type=float)
-parser.add_argument('--n-games', type=int, default=16)
+parser.add_argument('--n-games', '-n', type=int, default=16)
 args = parser.parse_args()
 
 n_games = args.n_games

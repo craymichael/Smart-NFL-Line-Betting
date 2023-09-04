@@ -39,6 +39,8 @@ standings = {
     for team, df_team in df.groupby(['team'], sort=False)
 }
 
+print(standings)
+
 ss = sorted(standings.items(), key=lambda x: x[1])
 worst = ss[:k]
 best = ss[-k:]
