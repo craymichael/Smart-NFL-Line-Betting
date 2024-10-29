@@ -20,7 +20,13 @@ bet_teams = random.choices(range(2), k=bet_on)
 #
 bet_pcts = [random.random() for _ in range(bet_on)]
 
+ez_data = {'home': [''] * n_games, 'away': [''] * n_games}
 for bet_pct, game, team in zip(bet_pcts, bet_games, bet_teams):
     bet = bet_pct / sum(bet_pcts) * money * bet_money_pct
     team = 'home' if team else 'away'
     print(f'Game row {game} bet of {bet:.2f} on {team} team')
+    ez_data[team][game - offset] = bet
+
+import pandas as pd
+
+print(pd.DataFrame(ez_data))

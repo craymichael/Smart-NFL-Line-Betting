@@ -29,13 +29,13 @@ for game in table.select('div[data-testid^="betSixPack-"]'):
     odds_data = game.select('#topOdd')
     data.append({
         'team': odds_data[0].select('a')[0]['href'].rsplit('/', 2)[-2].upper(),
-        'ml': odds_data[4].text,
+        'ml': odds_data[4].text.replace('EVEN', "-110"),
         'flag': 'away',
         'game': game_id,
     })
     data.append({
         'team': odds_data[5].select('a')[0]['href'].rsplit('/', 2)[-2].upper(),
-        'ml': odds_data[9].text,
+        'ml': odds_data[9].text.replace('EVEN', "-110"),
         'flag': 'home',
         'game': game_id,
     })

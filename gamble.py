@@ -230,6 +230,26 @@ else:
 
 print('Betting on %d teams with %.2f%% of $%.2f ($%.2f).' %
       (len(good_bets), bet_total * 100, money, money * bet_total))
+final_bets = {}
 for team, wager, _, _ in good_bets:
-    print('%3s $%.2f' % (team, wager / bet_scalar * money))
-# EOF
+    bet = wager / bet_scalar * money
+    print('%3s $%.2f' % (team, bet))
+    final_bets[team] = bet
+
+teams_clean = []
+for team in teams:
+    if team not in teams_clean and team != '0':
+        teams_clean.append(team)
+teams = teams_clean
+away = teams[:len(teams) // 2]
+home = teams[len(teams) // 2:]
+ez_data = [
+    {
+        'Away Team': ta,
+        'Away Bet': final_bets.get(ta, ''),
+        'Home Team': th,
+        'Home Bet': final_bets.get(th, ''),
+    }
+    for ta, th in zip(away, home)
+]
+print(pd.DataFrame(ez_data))

@@ -1,3 +1,7 @@
 .pyc
 __pycache__
 data/
+env
+*.csv
+*.txt
+*.ods
