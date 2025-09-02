@@ -17,7 +17,10 @@ response = requests.get(URL, headers=headers)
 soup = BeautifulSoup(response.content, 'html.parser')
 
 # gather data
+table = soup.select('section[data-testid="prism-LayoutCard"]')[0]
+"""
 table = soup.select('div[data-testid="odds"] section')[0]
+"""
 header = table.select('header > div > div')[0]
 print(header.text)
 print('-' * len(header.text))
@@ -26,16 +29,24 @@ data = []
 date = None
 game_id = 0
 for game in table.select('div[data-testid^="betSixPack-"]'):
-    odds_data = game.select('#topOdd')
+    # odds_data = game.select('#topOdd')
+    ml_txt = 'espnbet:espn:nfl:odds:moneyline:'
+    a_away, a_home = game.select(f'a[data-track-event_detail^="{ml_txt}"]')
+    away_team, away_ml = a_away['data-track-event_detail'][len(ml_txt):].split()
+    home_team, home_ml = a_home['data-track-event_detail'][len(ml_txt):].split()
     data.append({
-        'team': odds_data[0].select('a')[0]['href'].rsplit('/', 2)[-2].upper(),
-        'ml': odds_data[4].text.replace('EVEN', "-110"),
+        # 'team': odds_data[0].select('a')[0]['href'].rsplit('/', 2)[-2].upper(),
+        'team': away_team,
+        # 'ml': odds_data[4].text.replace('EVEN', "-110"),
+        'ml': away_ml.replace("EVEN", "-110"),
         'flag': 'away',
         'game': game_id,
     })
     data.append({
-        'team': odds_data[5].select('a')[0]['href'].rsplit('/', 2)[-2].upper(),
-        'ml': odds_data[9].text.replace('EVEN', "-110"),
+        # 'team': odds_data[5].select('a')[0]['href'].rsplit('/', 2)[-2].upper(),
+        'team': home_team,
+        # 'ml': odds_data[9].text.replace('EVEN', "-110"),
+        'ml': home_ml.replace("EVEN", "-110"),
         'flag': 'home',
         'game': game_id,
     })
