@@ -22,7 +22,6 @@ ELO_URL = ('https://projects.fivethirtyeight.com/'
            'data-webpage-data/datasets/nfl-elo.zip')
 ELO_FILE = 'nfl_elo_latest.csv'
 
-
 parser = argparse.ArgumentParser()
 parser.add_argument('money', type=float)
 parser.add_argument('lines')  # .csv file containing lines
@@ -71,6 +70,10 @@ lines_df.rename(
 lines_df.dropna(subset=['Money Line', 'Money Line.1',
                         'Away Team', 'Home Team'],
                 how='any', axis=0, inplace=True)
+for i in range(len(lines_df) - 1):
+    if lines_df.index[i] + 1 != lines_df.index[i + 1]:
+        lines_df = lines_df.iloc[:i + 1]
+        break
 lines_df.reset_index(inplace=True, drop=True)
 teams = list(lines_df.loc[:, 'Away Team'])
 teams.extend(list(lines_df.loc[:, 'Home Team']))
