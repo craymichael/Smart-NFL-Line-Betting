@@ -29,11 +29,22 @@ data = []
 date = None
 game_id = 0
 for game in table.select('div[data-testid^="betSixPack-"]'):
-    # odds_data = game.select('#topOdd')
+    odds_cells = game.select('div[data-testid="OddsCell"]')
+    assert len(odds_cells) == 8, len(odds_cells)
+    away_ml = odds_cells[3].text
+    home_ml = odds_cells[7].text
+    line_labels = game.select('div[data-testid="LineLabels"]')
+    assert len(line_labels) == 2, len(line_labels)
+    away_team, home_team = line_labels
+    away_team = away_team.select('a')[0]['href'].split('/')[-2].upper()
+    home_team = home_team.select('a')[0]['href'].split('/')[-2].upper()
+    # broken before 12/3/25
+    """
     ml_txt = 'espnbet:espn:nfl:odds:moneyline:'
     a_away, a_home = game.select(f'a[data-track-event_detail^="{ml_txt}"]')
     away_team, away_ml = a_away['data-track-event_detail'][len(ml_txt):].split()
     home_team, home_ml = a_home['data-track-event_detail'][len(ml_txt):].split()
+    """
     data.append({
         # 'team': odds_data[0].select('a')[0]['href'].rsplit('/', 2)[-2].upper(),
         'team': away_team,
